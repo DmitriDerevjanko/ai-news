@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>AI News — Fake News Detector</title>
+  <style>
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0d1117;color:#e6edf3;font-family:Inter,Arial,sans-serif}
+    .card{width:min(680px,90vw);padding:32px;border-radius:16px;background:#161b22;box-shadow:0 8px 28px rgba(0,0,0,.35)}
+    h1{margin:0 0 8px}
+    p{margin:0 0 16px;opacity:.85}
+    textarea{width:100%;min-height:120px;border-radius:10px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;padding:12px}
+    button{margin-top:12px;padding:10px 16px;border:0;border-radius:10px;background:#238636;color:#fff;cursor:pointer}
+    .row{display:flex;gap:12px;align-items:center}
+    .muted{opacity:.7;font-size:14px}
+    .out{margin-top:16px;padding:12px;border-radius:10px;background:#0d1117;border:1px dashed #30363d;white-space:pre-wrap}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>AI News</h1>
+    <p class="muted">Quick test UI. Press “Check” to ping <code>/api/health</code>, or “Predict” to send text to <code>/api/predict</code>.</p>
+    <div class="row">
+      <button id="btnHealth">Check</button>
+      <span id="health" class="muted">—</span>
+    </div>
+    <textarea id="txt" placeholder="Enter news text..."></textarea>
+    <button id="btnPredict">Predict</button>
+    <div id="out" class="out">—</div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

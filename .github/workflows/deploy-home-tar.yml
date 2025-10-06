@@ -1,0 +1,85 @@
+name: Deploy AI News via Docker TAR (Home Server)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Step 0 - Environment check
+        run: |
+          echo "🧪 Checking Docker and SSH"
+          docker --version
+          ssh -V || true
+
+      - name: Step 1 - Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Step 2 - Add SSH host key
+        run: |
+          echo "🔐 Adding known_hosts"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -p ${{ secrets.VPS_PORT }} ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Step 3 - Load SSH private key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Step 4 - Build Docker images (API and WEB)
+        run: |
+          echo "🐳 Building API image"
+          docker build -t ai-news-api:latest -f backend/Dockerfile .
+          echo "🐳 Building WEB image"
+          docker build -t ai-news-web:latest -f frontend/Dockerfile .
+
+      - name: Step 5 - Save images to TAR and copy to server
+        run: |
+          echo "📦 Saving images to TAR"
+          docker save ai-news-api:latest > ai-news-api.tar
+          docker save ai-news-web:latest > ai-news-web.tar
+          echo "🚚 Copying TARs via SCP"
+          scp -P ${{ secrets.VPS_PORT }} ai-news-api.tar ai-news-web.tar dmitri@${{ secrets.VPS_HOST }}:/tmp/
+
+      - name: Step 6 - Load images and (re)start containers on server
+        run: |
+          echo "🛠️ Loading images and restarting containers"
+          ssh -p ${{ secrets.VPS_PORT }} dmitri@${{ secrets.VPS_HOST }} << 'EOF'
+            set -e
+
+            # 1) Load images
+            docker load < /tmp/ai-news-api.tar
+            docker load < /tmp/ai-news-web.tar
+
+            # 2) Create network (if not exists)
+            docker network create ai_news_net || true
+
+            # 3) Stop & remove old containers (if any)
+            docker rm -f ai_news_web || true
+            docker rm -f ai_news_api || true
+
+            # 4) Run API (no published ports; name used by nginx upstream)
+            docker run -d --name ai_news_api \
+              --network ai_news_net \
+              ai-news-api:latest
+
+            # 5) Run WEB (bind to localhost:9001; reverse-proxy to ai_news_api)
+            docker run -d --name ai_news_web \
+              --network ai_news_net \
+              -p 127.0.0.1:9001:80 \
+              ai-news-web:latest
+
+            # 6) Cleanup TARs
+            rm -f /tmp/ai-news-api.tar /tmp/ai-news-web.tar
+          EOF
+
+      - name: Step 7 - Reload Nginx on server (VPS)
+        run: |
+          echo "🔁 Reloading Nginx"
+          ssh -p ${{ secrets.VPS_PORT }} dmitri@${{ secrets.VPS_HOST }} "sudo systemctl reload nginx || true"

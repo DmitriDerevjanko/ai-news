@@ -30,11 +30,40 @@ jobs:
             -e "ssh -p ${{ secrets.HOME_PORT }}" \
             ./ ${{ secrets.HOME_USER }}@${{ secrets.HOME_HOST }}:~/ai-news/
 
-      - name: Build & run with Docker Compose (on home)
+            - name: Build & run with Docker Compose (on home)
         run: |
           ssh -p ${{ secrets.HOME_PORT }} ${{ secrets.HOME_USER }}@${{ secrets.HOME_HOST }} << 'EOF'
             set -e
             cd ~/ai-news
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-            docker image prune -f || true
+
+            # Ensure docker & compose plugin exist
+            if ! command -v docker >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y docker.io
+              sudo systemctl enable --now docker
+            fi
+
+            # Prefer 'docker compose' (v2). If absent, install plugin or fallback to docker-compose.
+            if docker compose version >/dev/null 2>&1; then
+              COMPOSE="sudo docker compose"
+            elif command -v docker-compose >/dev/null 2>&1; then
+              COMPOSE="sudo docker-compose"
+            else
+              sudo apt-get update
+              sudo apt-get install -y docker-compose-plugin || true
+              if docker compose version >/dev/null 2>&1; then
+                COMPOSE="sudo docker compose"
+              else
+                # as a last resort try docker-compose v1
+                sudo apt-get install -y docker-compose
+                COMPOSE="sudo docker-compose"
+              fi
+            fi
+
+            # Build & run with prod override (binds to 127.0.0.1:9001)
+            \$COMPOSE -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+            # Cleanup dangling layers (non-fatal)
+            sudo docker image prune -f || true
           EOF
+

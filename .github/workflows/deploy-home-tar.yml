@@ -64,7 +64,7 @@ jobs:
             docker rm -f ai_news_web || true
             docker rm -f ai_news_api || true
 
-            # 4) Run API (no published ports; name used by nginx upstream)
+            # 4) Run API (no published ports; name is used by nginx upstream)
             docker run -d --name ai_news_api \
               --network ai_news_net \
               ai-news-api:latest
@@ -79,7 +79,7 @@ jobs:
             rm -f /tmp/ai-news-api.tar /tmp/ai-news-web.tar
           EOF
 
-      - name: Step 7 - Reload Nginx on server (VPS)
+      - name: Step 7 - Reload Nginx on server (optional)
         run: |
           echo "🔁 Reloading Nginx"
           ssh -p ${{ secrets.VPS_PORT }} dmitri@${{ secrets.VPS_HOST }} "sudo systemctl reload nginx || true"

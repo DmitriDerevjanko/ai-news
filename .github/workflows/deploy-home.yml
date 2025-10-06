@@ -10,11 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Add SSH host key (HOME)
         run: |
+          echo "🔐 Adding host key for HOME server"
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           ssh-keyscan -p "${{ secrets.HOME_PORT }}" "${{ secrets.HOME_HOST }}" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
@@ -24,46 +25,51 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.HOME_SSH_KEY }}
 
-      - name: Rsync project to home server
+      - name: Sync project files to home server
         run: |
+          echo "🚚 Syncing project to home server..."
           rsync -az --delete \
             -e "ssh -p ${{ secrets.HOME_PORT }}" \
             ./ ${{ secrets.HOME_USER }}@${{ secrets.HOME_HOST }}:~/ai-news/
 
-            - name: Build & run with Docker Compose (on home)
+      - name: Build & run with Docker Compose on home server
         run: |
+          echo "🐳 Building and running containers on home server..."
           ssh -p ${{ secrets.HOME_PORT }} ${{ secrets.HOME_USER }}@${{ secrets.HOME_HOST }} << 'EOF'
             set -e
             cd ~/ai-news
 
-            # Ensure docker & compose plugin exist
+            echo "🔍 Checking Docker installation..."
             if ! command -v docker >/dev/null 2>&1; then
+              echo "Installing Docker..."
               sudo apt-get update
               sudo apt-get install -y docker.io
               sudo systemctl enable --now docker
             fi
 
-            # Prefer 'docker compose' (v2). If absent, install plugin or fallback to docker-compose.
+            echo "🔍 Checking Docker Compose plugin..."
             if docker compose version >/dev/null 2>&1; then
               COMPOSE="sudo docker compose"
             elif command -v docker-compose >/dev/null 2>&1; then
               COMPOSE="sudo docker-compose"
             else
+              echo "Installing Docker Compose plugin..."
               sudo apt-get update
               sudo apt-get install -y docker-compose-plugin || true
               if docker compose version >/dev/null 2>&1; then
                 COMPOSE="sudo docker compose"
               else
-                # as a last resort try docker-compose v1
+                echo "Fallback to docker-compose v1..."
                 sudo apt-get install -y docker-compose
                 COMPOSE="sudo docker-compose"
               fi
             fi
 
-            # Build & run with prod override (binds to 127.0.0.1:9001)
-            \$COMPOSE -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+            echo "🚀 Starting containers..."
+            $COMPOSE -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
-            # Cleanup dangling layers (non-fatal)
+            echo "🧹 Cleaning unused images..."
             sudo docker image prune -f || true
-          EOF
 
+            echo "✅ Deployment finished successfully!"
+          EOF

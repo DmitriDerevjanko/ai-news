@@ -1,23 +1,40 @@
 version: "3.9"
+
 services:
   api:
     build:
       context: .
       dockerfile: backend/Dockerfile
     container_name: ai_news_api
-    expose: ["8000"]
+    expose:
+      - "8000"
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   web:
     image: nginx:1.27-alpine
     container_name: ai_news_web
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./wait-for-it.sh:/wait-for-it.sh
-    entrypoint: ["/bin/sh", "-c", "/wait-for-it.sh ai_news_api:8000 -- nginx -g 'daemon off;'"]
     ports:
       - "127.0.0.1:9001:80"
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

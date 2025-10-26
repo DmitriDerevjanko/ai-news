@@ -1,33 +1,160 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>AI News — Fake News Detector.</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🧠 AI SmartCam — Times Square</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
   <style>
-    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0d1117;color:#e6edf3;font-family:Inter,Arial,sans-serif}
-    .card{width:min(680px,90vw);padding:32px;border-radius:16px;background:#161b22;box-shadow:0 8px 28px rgba(0,0,0,.35)}
-    h1{margin:0 0 8px}
-    p{margin:0 0 16px;opacity:.85}
-    textarea{width:100%;min-height:120px;border-radius:10px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;padding:12px}
-    button{margin-top:12px;padding:10px 16px;border:0;border-radius:10px;background:#238636;color:#fff;cursor:pointer}
-    .row{display:flex;gap:12px;align-items:center}
-    .muted{opacity:.7;font-size:14px}
-    .out{margin-top:16px;padding:12px;border-radius:10px;background:#0d1117;border:1px dashed #30363d;white-space:pre-wrap}
+    body {
+      background: linear-gradient(135deg, #e8f0ff, #ffffff);
+      font-family: "Inter", sans-serif;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    h1 {
+      color: #0077ff;
+      margin: 20px 0 8px;
+      font-size: 2rem;
+      font-weight: 700;
+      text-shadow: 0 0 8px rgba(0, 119, 255, 0.25);
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #333;
+      margin-bottom: 30px;
+      font-size: 1.1rem;
+    }
+
+    .about {
+      background: #f7faff;
+      border-radius: 12px;
+      padding: 24px 28px;
+      width: 920px;
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
+      margin-bottom: 40px;
+    }
+
+    .about h2 {
+      color: #0077ff;
+      font-size: 1.3rem;
+      margin-bottom: 8px;
+    }
+
+    .about p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #444;
+      margin-bottom: 10px;
+    }
+
+    .about ul {
+      margin: 0;
+      padding-left: 22px;
+      font-size: 15px;
+      color: #333;
+    }
+
+    #videoContainer {
+      position: relative;
+      width: 960px;
+      height: 540px;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 6px 30px rgba(0, 0, 0, 0.15);
+      background: #000;
+    }
+
+    #videoFeed {
+      width: 100%;
+      height: 100%;
+      border: none;
+      object-fit: cover;
+      display: block;
+    }
+
+    footer {
+      margin-top: 40px;
+      padding: 16px;
+      font-size: 14px;
+      color: #555;
+      text-align: center;
+      border-top: 1px solid #e0e0e0;
+      width: 100%;
+    }
+
+    .repo-link {
+      text-align: center;
+      margin-top: 30px;
+    }
+
+    .repo-link a {
+      color: #0077ff;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.3s;
+    }
+
+    .repo-link a:hover {
+      color: #004fd1;
+      text-decoration: underline;
+    }
+
+    @media (max-width: 1000px) {
+      #videoContainer, .about {
+        width: 95%;
+      }
+    }
   </style>
 </head>
+
 <body>
-  <div class="card">
-    <h1>AI News</h1>
-    <p class="muted">Quick test UI. Press “Check” to ping <code>/api/health</code>, or “Predict” to send text to <code>/api/predict</code>.</p>
-    <div class="row">
-      <button id="btnHealth">Check</button>
-      <span id="health" class="muted">—</span>
-    </div>
-    <textarea id="txt" placeholder="Enter news text..."></textarea>
-    <button id="btnPredict">Predict</button>
-    <div id="out" class="out">—</div>
+  <h1>🧠 AI SmartCam — Live Object Detection</h1>
+  <p class="subtitle">Real-time visual detection from Times Square, New York City.</p>
+
+  <!-- === About the System === -->
+  <section class="about">
+    <h2>📘 About the System</h2>
+    <p>
+      <strong>AI SmartCam</strong> is a real-time computer vision system built with 
+      <strong>FastAPI</strong>, <strong>YOLOv8n</strong>, and <strong>OpenCV</strong>.
+      It processes a live HD stream from <em>EarthCam Times Square</em> and performs:
+    </p>
+    <ul>
+      <li>🧍 <strong>Object detection</strong> — identifying people, cars, and other visible entities in real time.</li>
+      <li>🎯 <strong>Visual tracking</strong> — maintaining object positions across frames using <strong>ByteTrack</strong>.</li>
+      <li>🖥️ <strong>On-screen visualization</strong> — all detections are rendered directly on the live video stream.</li>
+    </ul>
+    <p>
+      The current version focuses on accurate real-time detection and visualization.
+      Future updates will introduce counting, speed estimation, and advanced scene analytics.
+    </p>
+    <p>
+      Streamed frames are processed through 
+      <code>ffmpeg → OpenCV → FastAPI (MJPEG)</code> for smooth real-time display below.
+    </p>
+  </section>
+
+  <!-- === Live Stream === -->
+  <div id="videoContainer">
+    <img id="videoFeed" src="/api/video?city=times_square" alt="Live Stream">
   </div>
-  <script src="app.js"></script>
+
+  <!-- === GitHub Link === -->
+  <div class="repo-link">
+    <a href="https://github.com/DmitriDerevjanko/ai-news" target="_blank">
+      🌐 View Source Code on GitHub →
+    </a>
+  </div>
+
+  <footer>© 2025 AI Smart Systems | Powered by FastAPI + YOLOv8 + OpenCV</footer>
 </body>
 </html>

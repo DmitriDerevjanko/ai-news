@@ -1,2 +1,23 @@
+# --- API Framework ---
 fastapi==0.115.2
 uvicorn[standard]==0.30.6
+
+# --- ML / Detection ---
+ultralytics==8.3.3          
+torch>=2.2.0
+numpy>=1.26.0
+opencv-python-headless==4.10.0.84
+filterpy==1.4.5             
+scipy>=1.11.4
+lapx==0.7.1                
+
+# --- Video / Stream processing ---
+ffmpeg-python==0.2.0
+pillow>=10.2.0
+imageio>=2.34.0            
+pyyaml>=6.0.1
+
+# --- Utils ---
+requests>=2.31.0
+tqdm>=4.66.2
+typing-extensions>=4.8.0

@@ -1,10 +1,10 @@
-from fastapi import FastAPI, Response
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-import cv2, subprocess, numpy as np, shlex, re, math, time, signal
+import cv2, subprocess, numpy as np, shlex, re, math, signal, os, time
 from ultralytics import YOLO
-from datetime import datetime
 
-app = FastAPI(title="AI Live SmartCam")
+app = FastAPI(title="🧠 AI SmartCam — Dual Stream")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -12,14 +12,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# === Stream URL (Times Square) ===
-CAMERA_URL = (
-    "https://videos-3.earthcam.com/fecnetwork/hdtimes10.flv/playlist.m3u8?"
-    "t=vBci5OreTDT5OVZWlrH3hFWPpk6y83Y18ohQ4H190JPIFxYos0EkV%2BMfx7l01dtY2Tp18y4PaRanNC4yHRhYNA%3D%3D"
-    "&td=202510251426"
-)
+# === Local fallback video ===
+VIDEO_PATH = os.path.join(os.path.dirname(__file__), "time_square.mp4")
 
-# === YOLOv8n ===
+if not os.path.exists(VIDEO_PATH):
+    raise FileNotFoundError(f"❌ Video not found: {VIDEO_PATH}")
+
 print("🧠 Loading YOLOv8n model...")
 model = YOLO("yolov8n.pt")
 
@@ -30,54 +28,56 @@ FPS = 15
 
 @app.get("/api/health")
 def health():
+    """Healthcheck endpoint"""
     return {"status": "ok"}
 
 
 def generate_stream():
-    """MJPEG stream identical to the standalone YOLOv8 script (people + vehicles + speed)."""
-    print("🎥 Detecting stream resolution...")
+    """Dual MJPEG stream — original (left) + YOLO-annotated (right)."""
+    print("🎥 Probing local video resolution...")
     probe = subprocess.run(
         [
             "ffprobe", "-v", "error", "-select_streams", "v:0",
             "-show_entries", "stream=width,height", "-of", "csv=s=x:p=0",
-            CAMERA_URL
+            VIDEO_PATH
         ],
         capture_output=True, text=True
     )
-    match = re.search(r"(\d+)x(\d+)", probe.stdout)
+
+    match = re.search(r"(\d+)\s*x\s*(\d+)", probe.stdout)
     width, height = (int(match.group(1)), int(match.group(2))) if match else (1280, 720)
     frame_size = width * height * 3
-    print(f"✅ Stream resolution: {width}x{height}")
+    print(f"✅ Local video resolution: {width}x{height}")
 
+    # === FFmpeg with slow motion (2× slower) and infinite loop ===
     cmd = (
-        f'ffmpeg -loglevel warning -re -fflags nobuffer -flags low_delay '
-        f'-headers "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-        f'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\n'
-        f'Referer: https://www.earthcam.com/\r\nOrigin: https://www.earthcam.com\r\n" '
-        f'-i {shlex.quote(CAMERA_URL)} -f image2pipe -pix_fmt bgr24 -vcodec rawvideo -'
+        f'ffmpeg -stream_loop -1 -loglevel warning -re -fflags nobuffer -flags low_delay '
+        f'-i {shlex.quote(VIDEO_PATH)} -vf "setpts=2*PTS" '
+        f'-f image2pipe -pix_fmt bgr24 -vcodec rawvideo -'
     )
 
-    print("🚀 Launching ffmpeg...")
+    print("🚀 Launching ffmpeg (slow motion ×2)...")
     process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     font = cv2.FONT_HERSHEY_SIMPLEX
-    print("▶️ Detection + tracking started (press Q in local mode to stop).")
+    print("▶️ Detection + tracking started (looping).")
 
     try:
         while True:
             raw = process.stdout.read(frame_size)
             if len(raw) != frame_size:
-                err = process.stderr.readline().decode(errors="ignore").strip()
-                if err:
-                    print("⚠️", err)
+                # Если кадры закончились — возможно, ffmpeg перезапускается
+                time.sleep(0.1)
                 continue
 
             frame = np.frombuffer(raw, np.uint8).reshape((height, width, 3))
-            frame_resized = cv2.resize(frame, (960, 540))
+            frame_resized = cv2.resize(frame, (640, 360))
+            original = frame_resized.copy()
 
+            # --- YOLO detection ---
             results = model.track(
                 frame_resized,
                 persist=True,
-                conf=0.1,
+                conf=0.15,
                 imgsz=960,
                 tracker="bytetrack.yaml",
                 verbose=False,
@@ -100,7 +100,8 @@ def generate_stream():
                     if cls == 0:  # person
                         person_count += 1
 
-                    if cls in [2, 3, 5, 7]:  # vehicles
+                    # Vehicle tracking + speed
+                    if cls in [2, 3, 5, 7]:
                         if obj_id in object_history:
                             dx = cx - object_history[obj_id][0]
                             dy = cy - object_history[obj_id][1]
@@ -114,24 +115,38 @@ def generate_stream():
                             )
                         object_history[obj_id] = (cx, cy)
 
+            # Add people count text
             cv2.putText(
                 annotated, f"People: {person_count}", (10, 30),
                 font, 1, (0, 255, 0), 2
             )
 
-            # Encode and yield as MJPEG frame
-            _, jpeg = cv2.imencode(".jpg", annotated)
-            yield (b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + jpeg.tobytes() + b"\r\n")
+            # Combine original + annotated side by side
+            combined = np.hstack((original, annotated))
+
+            # Encode as JPEG and yield frame
+            _, jpeg = cv2.imencode(".jpg", combined)
+            yield (
+                b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
+                + jpeg.tobytes()
+                + b"\r\n"
+            )
 
     except Exception as e:
-        print("❌ Stream error:", e)
+        print(f"❌ Stream error: {e}")
     finally:
-        process.send_signal(signal.SIGTERM)
-        process.wait()
+        try:
+            process.send_signal(signal.SIGTERM)
+            process.wait(timeout=2)
+        except Exception:
+            pass
         print("✅ Stream closed.")
 
 
 @app.get("/api/video")
 def video_feed():
-    """Return MJPEG stream endpoint."""
-    return Response(generate_stream(), media_type="multipart/x-mixed-replace; boundary=frame")
+    """Return MJPEG stream with side-by-side comparison."""
+    return StreamingResponse(
+        generate_stream(),
+        media_type="multipart/x-mixed-replace; boundary=frame"
+    )

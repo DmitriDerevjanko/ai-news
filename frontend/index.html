@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🧠 AI SmartCam — Times Square</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
   <style>
@@ -63,12 +66,13 @@
       color: #333;
     }
 
+    /* === FIX: Show full dual video side-by-side === */
     #videoContainer {
       position: relative;
-      width: 960px;
-      height: 540px;
+      width: 1280px;      /* два видео по 640px шириной */
+      height: 360px;      /* высота каждого видео */
       border-radius: 20px;
-      overflow: hidden;
+      overflow: visible;  /* ничего не обрезаем */
       box-shadow: 0 6px 30px rgba(0, 0, 0, 0.15);
       background: #000;
     }
@@ -77,7 +81,7 @@
       width: 100%;
       height: 100%;
       border: none;
-      object-fit: cover;
+      object-fit: contain; /* сохраняем пропорции */
       display: block;
     }
 
@@ -108,8 +112,19 @@
       text-decoration: underline;
     }
 
-    @media (max-width: 1000px) {
-      #videoContainer, .about {
+    /* === Responsive for mobile === */
+    @media (max-width: 1300px) {
+      #videoContainer {
+        width: 100%;
+        height: auto;
+      }
+
+      #videoFeed {
+        width: 100%;
+        height: auto;
+      }
+
+      .about {
         width: 95%;
       }
     }
@@ -117,8 +132,8 @@
 </head>
 
 <body>
-  <h1>🧠 AI SmartCam — Live Object Detection</h1>
-  <p class="subtitle">Real-time visual detection from Times Square, New York City.</p>
+  <h1>🧠 AI SmartCam — Dual Stream Detection</h1>
+  <p class="subtitle">Left: Original | Right: YOLOv8 Live Detection (Times Square)</p>
 
   <!-- === About the System === -->
   <section class="about">
@@ -126,26 +141,23 @@
     <p>
       <strong>AI SmartCam</strong> is a real-time computer vision system built with 
       <strong>FastAPI</strong>, <strong>YOLOv8n</strong>, and <strong>OpenCV</strong>.
-      It processes a live HD stream from <em>EarthCam Times Square</em> and performs:
+      It processes live or local video streams and performs:
     </p>
     <ul>
       <li>🧍 <strong>Object detection</strong> — identifying people, cars, and other visible entities in real time.</li>
       <li>🎯 <strong>Visual tracking</strong> — maintaining object positions across frames using <strong>ByteTrack</strong>.</li>
-      <li>🖥️ <strong>On-screen visualization</strong> — all detections are rendered directly on the live video stream.</li>
+      <li>🖥️ <strong>Side-by-side comparison</strong> — original footage on the left, annotated version on the right.</li>
     </ul>
     <p>
-      The current version focuses on accurate real-time detection and visualization.
-      Future updates will introduce counting, speed estimation, and advanced scene analytics.
-    </p>
-    <p>
-      Streamed frames are processed through 
-      <code>ffmpeg → OpenCV → FastAPI (MJPEG)</code> for smooth real-time display below.
+      Frames are processed through 
+      <code>ffmpeg → OpenCV → FastAPI (MJPEG)</code> 
+      for smooth, continuous streaming below.
     </p>
   </section>
 
-  <!-- === Live Stream === -->
+  <!-- === Dual Stream Video === -->
   <div id="videoContainer">
-    <img id="videoFeed" src="/api/video?city=times_square" alt="Live Stream">
+    <img id="videoFeed" src="/api/video" alt="Dual Stream Video">
   </div>
 
   <!-- === GitHub Link === -->

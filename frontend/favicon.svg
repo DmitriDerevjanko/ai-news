@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="AI SmartCam">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0077ff"/>
+      <stop offset="100%" stop-color="#004fd1"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
+  <!-- camera body -->
+  <rect x="6" y="11" width="20" height="13" rx="3" fill="#fff" opacity="0.95"/>
+  <circle cx="16" cy="17.5" r="4.5" fill="#0077ff"/>
+  <circle cx="16" cy="17.5" r="2.2" fill="#fff"/>
+  <!-- viewfinder -->
+  <rect x="12" y="7" width="8" height="4" rx="1.5" fill="#fff" opacity="0.95"/>
+  <!-- AI neural nodes -->
+  <circle cx="24" cy="8" r="1.4" fill="#fff"/>
+  <circle cx="27" cy="11" r="1.2" fill="#fff" opacity="0.85"/>
+  <circle cx="24" cy="14" r="1.2" fill="#fff" opacity="0.85"/>
+  <path d="M24 8 L27 11 M24 8 L24 14 M27 11 L24 14" stroke="#fff" stroke-width="0.8" stroke-linecap="round" opacity="0.7"/>
+</svg>

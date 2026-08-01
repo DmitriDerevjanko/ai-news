@@ -7,48 +7,43 @@ import signal
 import math
 import time
 from ultralytics import YOLO
+import os
 
-URL = "https://videos-3.earthcam.com/fecnetwork/hdtimes10.flv/playlist.m3u8?t=vBci5OreTDT5OVZWlrH3hFWPpk6y83Y18ohQ4H190JPIFxYos0EkV%2BMfx7l01dtY2Tp18y4PaRanNC4yHRhYNA%3D%3D&td=202510251426"
+# === Local video file ===
+VIDEO_PATH = os.path.join(os.path.dirname(__file__), "time_square.mp4")
 
-headers = (
-    "-headers",
-    "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/120.0.0.0 Safari/537.36\r\n"
-    "Referer: https://www.earthcam.com/\r\n"
-    "Origin: https://www.earthcam.com\r\n"
-)
+if not os.path.exists(VIDEO_PATH):
+    raise FileNotFoundError(f"❌ Видео не найдено: {VIDEO_PATH}")
 
-# Get stream resolution
+# === Get video resolution ===
 probe_cmd = [
     "ffprobe", "-v", "error", "-select_streams", "v:0",
-    "-show_entries", "stream=width,height", "-of", "csv=s=x:p=0"
-] + list(headers) + [URL]
+    "-show_entries", "stream=width,height", "-of", "csv=s=x:p=0",
+    VIDEO_PATH
+]
 probe = subprocess.run(probe_cmd, capture_output=True, text=True)
 match = re.search(r"(\d+)\s*x\s*(\d+)", probe.stdout)
 width, height = (int(match.group(1)), int(match.group(2))) if match else (1280, 720)
-print(f"🎥 Stream resolution: {width}x{height}")
+print(f"🎥 Local video resolution: {width}x{height}")
 
-# Start ffmpeg
+# === Start ffmpeg in infinite loop (-stream_loop -1) + slow motion (3x) ===
 cmd = (
-    f'ffmpeg -loglevel warning -re -fflags nobuffer -flags low_delay '
-    f'-headers "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-    f'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\n'
-    f'Referer: https://www.earthcam.com/\r\nOrigin: https://www.earthcam.com\r\n" '
-    f'-i {shlex.quote(URL)} -f image2pipe -pix_fmt bgr24 -vcodec rawvideo -'
+    f'ffmpeg -stream_loop -1 -loglevel warning -re -fflags nobuffer -flags low_delay '
+    f'-i {shlex.quote(VIDEO_PATH)} -vf "setpts=3*PTS" '  # 👈 замедление
+    f'-f image2pipe -pix_fmt bgr24 -vcodec rawvideo -'
 )
-print("🚀 Launching ffmpeg...")
+print("🚀 Launching ffmpeg (slow motion x3)...")
 process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 frame_size = width * height * 3
 
-# Load YOLOv8n
+# === Load YOLOv8n ===
 print("🧠 Loading YOLOv8n model...")
 model = YOLO("yolov8n.pt")
 
 last_positions = {}
 PIXEL_TO_METER = 0.05
 FPS = 15
-print("▶️ Detection + tracking started. Press Q to quit.")
+print("▶️ Detection + tracking started (looping & slowed). Press Q to quit.")
 
 try:
     while True:
@@ -59,10 +54,12 @@ try:
                 print("⚠️", err)
             continue
 
+        # === Read and resize ===
         frame = np.frombuffer(raw, np.uint8).reshape((height, width, 3))
         frame_resized = cv2.resize(frame, (960, 540))
+        original = frame_resized.copy()  # сохраняем оригинал
 
-        # 👉 same YOLOv8n, just lower conf and higher imgsz
+        # === YOLO detection ===
         results = model.track(
             frame_resized,
             persist=True,
@@ -109,7 +106,11 @@ try:
             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2
         )
 
-        cv2.imshow("🗽 Times Square — YOLOv8 Tracking", annotated)
+        # === Combine two videos side by side ===
+        combined = np.hstack((original, annotated))
+
+        # === Show both ===
+        cv2.imshow("🗽 Times Square | Original (Left) + YOLOv8 Detection (Right)", combined)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
